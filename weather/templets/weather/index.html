@@ -1,0 +1,366 @@
+{% extends "weather/base.html" %}
+{% block title %}Atmosfera — Weather{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ─── Hero ──────────────────────────────────────────────────────── */
+.hero {
+  text-align: center;
+  padding: 3rem 0 2.5rem;
+}
+
+.hero-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mist);
+  margin-bottom: 1.2rem;
+}
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.8rem, 8vw, 5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--ink);
+  margin-bottom: 0.8rem;
+  letter-spacing: -0.03em;
+}
+
+.hero-sub {
+  font-size: 0.85rem;
+  color: var(--mist);
+  max-width: 380px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.7;
+}
+
+/* ─── Search ─────────────────────────────────────────────────────── */
+.search-card {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.search-form {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+  position: relative;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.9rem 1.2rem;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 50px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.88rem;
+  color: var(--ink);
+  outline: none;
+  transition: all 0.25s;
+}
+.search-input::placeholder { color: var(--mist-light); }
+.search-input:focus {
+  background: rgba(255,255,255,0.9);
+  border-color: var(--sky-deep);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* Autocomplete dropdown */
+.autocomplete-wrap { position: relative; flex: 1; }
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-bdr);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-shadow);
+  z-index: 100;
+  overflow: hidden;
+  display: none;
+}
+.autocomplete-list.open { display: block; }
+.autocomplete-item {
+  padding: 0.7rem 1.1rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background 0.15s;
+}
+.autocomplete-item:hover { background: rgba(59,130,246,0.08); }
+
+/* ─── Divider ─────────────────────────────────────────────────────── */
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mist-light);
+}
+.or-divider::before, .or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.6);
+}
+
+/* ─── Geo Button ─────────────────────────────────────────────────── */
+.geo-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  font-size: 0.82rem;
+}
+
+.geo-icon {
+  font-size: 1.1rem;
+  animation: floatY 3s ease-in-out infinite;
+}
+
+/* ─── Status ─────────────────────────────────────────────────────── */
+.geo-status {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--mist);
+  margin-top: 0.8rem;
+  text-align: center;
+}
+.geo-status.visible { display: flex; }
+
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(100,150,200,0.3);
+  border-top-color: var(--sky-deep);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Feature chips ──────────────────────────────────────────────── */
+.features {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 2.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.chip {
+  background: var(--glass);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 50px;
+  padding: 0.4rem 1rem;
+  font-size: 0.7rem;
+  color: var(--mist);
+  letter-spacing: 0.06em;
+}
+
+/* ─── Floating emoji decoration ─────────────────────────────────── */
+.deco {
+  position: fixed;
+  font-size: 3.5rem;
+  opacity: 0.12;
+  user-select: none;
+  pointer-events: none;
+  z-index: 0;
+  animation: floatY 6s ease-in-out infinite;
+}
+.deco:nth-child(2) { top: 10%; right: 5%; animation-delay: 1s; }
+.deco:nth-child(3) { bottom: 20%; left: 4%; animation-delay: 2.5s; animation-duration: 8s; font-size: 2.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Decorative floating icons -->
+<div class="deco">⛅</div>
+<div class="deco">🌤️</div>
+
+<section class="hero fade-up">
+  <span class="hero-tag">Your personal forecast</span>
+  <h1 class="hero-title">Feel the<br>weather.</h1>
+  <p class="hero-sub">Real-time conditions, hourly and 7-day forecasts, air quality — all in one place.</p>
+</section>
+
+{% if error %}
+<div class="alert alert-error fade-up" style="max-width:520px;margin:0 auto 1.5rem;">
+  ⚠️ {{ error }}
+</div>
+{% endif %}
+
+<div class="card search-card fade-up" style="animation-delay:0.15s">
+
+  <!-- City search -->
+  <form method="GET" action="/weather/" id="searchForm">
+    <div class="search-form">
+      <div class="autocomplete-wrap">
+        <input
+          type="text"
+          name="city"
+          id="cityInput"
+          class="search-input"
+          placeholder="Search city… e.g. Tokyo"
+          value="{{ query|default:'' }}"
+          autocomplete="off"
+          required
+        />
+        <div class="autocomplete-list" id="autocompleteList"></div>
+      </div>
+      <!-- Unit toggle hidden field -->
+      <input type="hidden" name="units" id="unitsField" value="imperial">
+      <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+
+    <!-- Unit preference -->
+    <div style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
+      <button type="button" class="btn btn-ghost" id="unitF" onclick="setUnit('imperial')" style="padding:0.4rem 1rem;font-size:0.72rem;">°F</button>
+      <button type="button" class="btn btn-ghost" id="unitC" onclick="setUnit('metric')"   style="padding:0.4rem 1rem;font-size:0.72rem;">°C</button>
+    </div>
+  </form>
+
+  <div class="or-divider">or</div>
+
+  <!-- Geolocation -->
+  <button class="btn btn-ghost geo-btn" id="geoBtn" onclick="requestGeo()">
+    <span class="geo-icon">📍</span>
+    Use my current location
+  </button>
+
+  <div class="geo-status" id="geoStatus">
+    <div class="spinner"></div>
+    <span id="geoStatusText">Requesting location…</span>
+  </div>
+</div>
+
+<div class="features fade-up" style="animation-delay:0.3s;">
+  <span class="chip">🌡️ Real-time temp</span>
+  <span class="chip">💧 Humidity</span>
+  <span class="chip">🌬️ Wind speed</span>
+  <span class="chip">🌫️ Air quality</span>
+  <span class="chip">📅 7-day forecast</span>
+  <span class="chip">⏱️ Hourly</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Unit toggle ─────────────────────────────────────────────────
+let unit = localStorage.getItem('atmosfera_unit') || 'imperial';
+
+function setUnit(u) {
+  unit = u;
+  localStorage.setItem('atmosfera_unit', u);
+  document.getElementById('unitsField').value = u;
+  document.getElementById('unitF').style.background = u === 'imperial' ? 'rgba(17,24,39,0.9)' : '';
+  document.getElementById('unitF').style.color      = u === 'imperial' ? 'white' : '';
+  document.getElementById('unitC').style.background = u === 'metric'   ? 'rgba(17,24,39,0.9)' : '';
+  document.getElementById('unitC').style.color      = u === 'metric'   ? 'white' : '';
+}
+
+setUnit(unit); // init on load
+
+// ─── Autocomplete ─────────────────────────────────────────────────
+const cityInput = document.getElementById('cityInput');
+const acList    = document.getElementById('autocompleteList');
+let acTimer;
+
+cityInput.addEventListener('input', () => {
+  clearTimeout(acTimer);
+  const q = cityInput.value.trim();
+  if (q.length < 2) { acList.classList.remove('open'); return; }
+  acTimer = setTimeout(() => fetchSuggestions(q), 300);
+});
+
+cityInput.addEventListener('blur', () => setTimeout(() => acList.classList.remove('open'), 200));
+
+function fetchSuggestions(q) {
+  fetch(`/api/search/?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      acList.innerHTML = '';
+      if (!data.results || data.results.length === 0) { acList.classList.remove('open'); return; }
+      data.results.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'autocomplete-item';
+        el.textContent = item.label;
+        el.addEventListener('click', () => {
+          cityInput.value = item.label;
+          acList.classList.remove('open');
+          document.getElementById('searchForm').submit();
+        });
+        acList.appendChild(el);
+      });
+      acList.classList.add('open');
+    })
+    .catch(() => acList.classList.remove('open'));
+}
+
+// ─── Geolocation ─────────────────────────────────────────────────
+function requestGeo() {
+  if (!navigator.geolocation) {
+    showGeoStatus('Geolocation is not supported by your browser.');
+    return;
+  }
+  showGeoStatus('Requesting location…', true);
+  navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, {
+    enableHighAccuracy: true,
+    timeout: 12000,
+  });
+}
+
+function onGeoSuccess(pos) {
+  showGeoStatus('Got location — fetching weather…', true);
+  fetch('/api/geo/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      lat:   pos.coords.latitude,
+      lon:   pos.coords.longitude,
+      units: unit,
+    }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { showGeoStatus('⚠️ ' + data.error); return; }
+    renderGeoResult(data);
+  })
+  .catch(() => showGeoStatus('⚠️ Network error fetching weather.'));
+}
+
+function onGeoError(err) {
+  const msgs = {
+    1: 'Location access denied. Please allow location in your browser settings.',
+    2: 'Location unavailable. Try searching by city name.',
+    3: 'Location request timed out.',
+  };
+  showGeoStatus('⚠️ ' + (msgs[err.code] || 'Unknown error.'));
+}
+
+function showGeoStatus(msg, loading = false) {
+  const wrap = document.getElementById('geoStatus');
+  const txt  = document.getElementById('geoStatusText');
+  wrap.classList.add('visible');
+  txt.textContent = msg;
+  wrap.querySelector('.spinner').style.display = loading ? 'block' : 'none';
+}
+
+function renderGeoResult(data) {
+  // Redirect to a results page by storing in sessionStorage then redirecting
+  // (simpler than rendering inline — keeps URL shareable)
+  sessionStorage.setItem('geoWeather', JSON.stringify(data));
+  window.location.href = '/weather/geo/';
+}
+</script>
+{% endblock %}
