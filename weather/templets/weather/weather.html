@@ -1,0 +1,454 @@
+{% extends "weather/base.html" %}
+{% block title %}{{ current.city }} Weather — Atmosfera{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ─── Back & Search bar ─────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+  flex-wrap: wrap;
+}
+
+.back-link {
+  font-size: 0.75rem;
+  color: var(--mist);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: color 0.2s;
+}
+.back-link:hover { color: var(--ink); }
+
+.mini-search {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+  max-width: 360px;
+}
+.mini-search input {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  background: var(--glass-hvy);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 50px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--ink);
+  outline: none;
+  transition: all 0.2s;
+}
+.mini-search input:focus { background: rgba(255,255,255,0.9); border-color: var(--sky-deep); }
+.mini-search button { padding: 0.6rem 1.1rem; font-size: 0.8rem; }
+
+/* Unit toggle */
+.unit-pills { display: flex; gap: 0.3rem; margin-left: auto; }
+.unit-pill {
+  background: var(--glass);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 50px;
+  padding: 0.4rem 0.9rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--mist);
+  transition: all 0.2s;
+}
+.unit-pill.active { background: var(--ink); color: white; border-color: var(--ink); }
+
+/* ─── Main hero card ─────────────────────────────────────────────── */
+.hero-card {
+  padding: 2.2rem 2.5rem;
+  margin-bottom: 1.2rem;
+  animation: fadeUp 0.6s ease both;
+}
+
+.location-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mist);
+  margin-bottom: 0.3rem;
+}
+
+.city-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.2rem;
+}
+
+.current-date {
+  font-size: 0.75rem;
+  color: var(--mist);
+  margin-bottom: 2rem;
+}
+
+.weather-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.temp-giant {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(5rem, 14vw, 8rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.temp-giant sup { font-size: 0.28em; color: var(--mist); vertical-align: super; }
+
+.weather-right { flex: 1; min-width: 160px; }
+
+.condition-icon {
+  width: 72px; height: 72px;
+  margin-bottom: 0.2rem;
+  filter: drop-shadow(0 4px 12px rgba(60,120,200,0.25));
+  animation: floatY 4s ease-in-out infinite;
+}
+
+.condition-desc {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--ink);
+  margin-bottom: 0.3rem;
+}
+
+.feels-line { font-size: 0.78rem; color: var(--mist); margin-bottom: 0.4rem; }
+.hi-lo      { font-size: 0.78rem; color: var(--mist); }
+
+/* ─── Stats strip ────────────────────────────────────────────────── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: rgba(255,255,255,0.4);
+  border-top: 1px solid rgba(255,255,255,0.5);
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+.stat-item { text-align: center; }
+.stat-label { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mist-light); margin-bottom: 0.3rem; }
+.stat-val { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--ink); }
+.stat-sub { font-size: 0.65rem; color: var(--mist); margin-top: 0.1rem; }
+
+/* ─── Section title ──────────────────────────────────────────────── */
+.section-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mist);
+  margin-bottom: 0.9rem;
+  margin-top: 1.6rem;
+}
+
+/* ─── Hourly ─────────────────────────────────────────────────────── */
+.hourly-row {
+  display: flex;
+  gap: 0.7rem;
+  overflow-x: auto;
+  padding-bottom: 0.8rem;
+  scrollbar-width: none;
+}
+.hourly-row::-webkit-scrollbar { display: none; }
+
+.hour-card {
+  flex: 0 0 auto;
+  background: var(--glass);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  text-align: center;
+  min-width: 70px;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: var(--card-inner);
+}
+.hour-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.6); }
+.hour-card.now { background: rgba(17,24,39,0.82); border-color: transparent; }
+.hour-card.now .hour-time, .hour-card.now .hour-temp { color: white; }
+
+.hour-time { font-size: 0.65rem; color: var(--mist); margin-bottom: 0.5rem; }
+.hour-img { width: 36px; height: 36px; margin: 0 auto 0.4rem; display: block; }
+.hour-temp { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--ink); }
+.hour-pop { font-size: 0.6rem; color: #60a5fa; margin-top: 0.2rem; }
+
+/* ─── 7-day forecast ─────────────────────────────────────────────── */
+.forecast-list { display: grid; gap: 0.6rem; }
+
+.day-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-bdr);
+  border-radius: 14px;
+  padding: 1rem 1.4rem;
+  display: grid;
+  grid-template-columns: 110px auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: var(--card-inner);
+  transition: transform 0.18s, background 0.18s;
+  cursor: default;
+}
+.day-card:hover { transform: translateX(4px); background: rgba(255,255,255,0.55); }
+
+.day-name-cell { }
+.day-full { font-family: 'Playfair Display', serif; font-size: 0.95rem; }
+.day-date { font-size: 0.65rem; color: var(--mist); }
+
+.day-icon-cell img { width: 40px; height: 40px; }
+
+.day-bar-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--mist);
+}
+.temp-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(150,190,230,0.3);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+  min-width: 60px;
+}
+.temp-bar-fill {
+  position: absolute;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(to right, #60a5fa, #fbbf24);
+}
+
+.day-hi { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--ink); white-space: nowrap; }
+.day-desc-sm { font-size: 0.62rem; color: var(--mist); }
+
+/* ─── Air quality & extras ───────────────────────────────────────── */
+.extra-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0;
+}
+
+.extra-card {
+  padding: 1.4rem;
+}
+
+.extra-title { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mist); margin-bottom: 0.8rem; }
+
+.aqi-badge {
+  display: inline-block;
+  padding: 0.3rem 0.9rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0.8rem;
+  color: white;
+}
+
+.aqi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.aqi-item { font-size: 0.72rem; }
+.aqi-key { color: var(--mist); }
+.aqi-val { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--ink); }
+
+.sun-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.sun-item { text-align: center; }
+.sun-label { font-size: 0.65rem; color: var(--mist); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.3rem; }
+.sun-val { font-family: 'Playfair Display', serif; font-size: 1.2rem; }
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .hero-card { padding: 1.5rem; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .day-card { grid-template-columns: 1fr auto auto; }
+  .day-bar-cell { display: none; }
+  .extra-row { grid-template-columns: 1fr; }
+  .top-bar { gap: 0.6rem; }
+  .mini-search { max-width: none; width: 100%; order: 3; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Top bar: back, search, units -->
+<div class="top-bar fade-down">
+  <a href="/" class="back-link">← Back</a>
+
+  <form method="GET" action="/weather/" class="mini-search">
+    <input type="hidden" name="units" value="{{ units }}">
+    <input type="text" name="city" placeholder="Search another city…" autocomplete="off">
+    <button type="submit" class="btn btn-primary">Go</button>
+  </form>
+
+  <div class="unit-pills">
+    <a href="?city={{ query }}&units=imperial" class="unit-pill {% if units == 'imperial' %}active{% endif %}">°F</a>
+    <a href="?city={{ query }}&units=metric"   class="unit-pill {% if units == 'metric'   %}active{% endif %}">°C</a>
+  </div>
+</div>
+
+<!-- ── Hero card ── -->
+<div class="card hero-card">
+  <div class="location-row">
+    <span>📍</span>
+    <span>{{ current.country }}</span>
+  </div>
+  <h1 class="city-title">{{ current.display_name|default:current.city }}</h1>
+  <p class="current-date" id="currentDate">Loading date…</p>
+
+  <div class="weather-main">
+    <div>
+      <div class="temp-giant">{{ current.temp }}<sup>°</sup></div>
+      <div class="feels-line">Feels like {{ current.feels_like }}{{ current.temp_sym }}</div>
+      <div class="hi-lo">H: {{ current.temp_max }}{{ current.temp_sym }} &nbsp; L: {{ current.temp_min }}{{ current.temp_sym }}</div>
+    </div>
+    <div class="weather-right">
+      <img class="condition-icon" src="{{ current.icon_url }}" alt="{{ current.description }}">
+      <div class="condition-desc">{{ current.description }}</div>
+      <div class="feels-line">{{ current.clouds }}% cloud cover</div>
+    </div>
+  </div>
+
+  <div class="stats-strip">
+    <div class="stat-item">
+      <div class="stat-label">Humidity</div>
+      <div class="stat-val">{{ current.humidity }}<span style="font-size:0.6em;color:var(--mist)">%</span></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Wind</div>
+      <div class="stat-val">{{ current.wind_speed }}</div>
+      <div class="stat-sub">{{ current.wind_dir }} · {{ current.speed_sym }}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Pressure</div>
+      <div class="stat-val">{{ current.pressure }}</div>
+      <div class="stat-sub">hPa</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Visibility</div>
+      <div class="stat-val">{{ current.visibility }}</div>
+      <div class="stat-sub">{{ current.dist_sym }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Hourly ── -->
+{% if forecast and forecast.hourly %}
+<div class="section-label">Hourly Forecast</div>
+<div class="hourly-row">
+  {% for h in forecast.hourly %}
+  <div class="hour-card {% if forloop.first %}now{% endif %}">
+    <div class="hour-time">{% if forloop.first %}Now{% else %}{{ h.time }}{% endif %}</div>
+    <img class="hour-img" src="{{ h.icon_url }}" alt="{{ h.icon }}">
+    <div class="hour-temp">{{ h.temp }}°</div>
+    {% if h.pop > 5 %}<div class="hour-pop">💧{{ h.pop }}%</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── 7-Day ── -->
+{% if forecast and forecast.daily %}
+<div class="section-label">7-Day Forecast</div>
+<div class="forecast-list">
+  {% for d in forecast.daily %}
+  <div class="day-card" style="animation: fadeUp 0.5s ease {{ forloop.counter0|floatformat:1 }}00ms both;">
+    <div class="day-name-cell">
+      <div class="day-full">{% if forloop.first %}Today{% else %}{{ d.day_name }}{% endif %}</div>
+      <div class="day-date">{{ d.date_str }}</div>
+      <div class="day-desc-sm">{{ d.description }}</div>
+    </div>
+    <div class="day-icon-cell">
+      <img src="{{ d.icon_url }}" alt="{{ d.description }}" width="40" height="40">
+    </div>
+    <div class="day-bar-cell">
+      <span>{{ d.temp_min }}°</span>
+      <div class="temp-bar">
+        <div class="temp-bar-fill" style="left:10%;width:70%"></div>
+      </div>
+      <span>{{ d.temp_max }}°</span>
+    </div>
+    <div>
+      <div class="day-hi">{{ d.temp_max }}°</div>
+      {% if d.pop > 10 %}<div class="day-desc-sm">💧{{ d.pop }}%</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Air quality + Sunrise ── -->
+<div class="extra-row" style="margin-top:1.6rem;">
+  {% if air %}
+  <div class="card extra-card fade-up">
+    <div class="extra-title">Air Quality</div>
+    <span class="aqi-badge" style="background:{{ air.color }}">{{ air.label }} (AQI {{ air.aqi }})</span>
+    <div class="aqi-grid">
+      <div class="aqi-item"><div class="aqi-key">PM2.5</div><div class="aqi-val">{{ air.pm25 }}</div></div>
+      <div class="aqi-item"><div class="aqi-key">PM10</div><div class="aqi-val">{{ air.pm10 }}</div></div>
+      <div class="aqi-item"><div class="aqi-key">O₃</div><div class="aqi-val">{{ air.o3 }}</div></div>
+      <div class="aqi-item"><div class="aqi-key">NO₂</div><div class="aqi-val">{{ air.no2 }}</div></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card extra-card fade-up">
+    <div class="extra-title">Sun & Moon</div>
+    <div class="sun-row">
+      <div class="sun-item">
+        <div class="sun-label">🌅 Sunrise</div>
+        <div class="sun-val" id="sunriseVal">—</div>
+      </div>
+      <div class="sun-item">
+        <div class="sun-label">🌇 Sunset</div>
+        <div class="sun-val" id="sunsetVal">—</div>
+      </div>
+      <div class="sun-item">
+        <div class="sun-label">💨 Gust</div>
+        <div class="sun-val">{{ current.wind_gust }} <span style="font-size:0.5em;color:var(--mist)">{{ current.speed_sym }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Current date/time ───────────────────────────────────────────
+const tz = {{ current.timezone }};  // UTC offset in seconds
+const now = new Date(Date.now() + tz * 1000 + new Date().getTimezoneOffset() * 60000);
+document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// ─── Sunrise / Sunset ────────────────────────────────────────────
+function tsToLocal(ts, tzOffset) {
+  const d = new Date((ts + tzOffset) * 1000);
+  return d.toUTCString().match(/\d{2}:\d{2}/)[0];
+}
+document.getElementById('sunriseVal').textContent = tsToLocal({{ current.sunrise }}, {{ current.timezone }});
+document.getElementById('sunsetVal').textContent  = tsToLocal({{ current.sunset }},  {{ current.timezone }});
+</script>
+{% endblock %}

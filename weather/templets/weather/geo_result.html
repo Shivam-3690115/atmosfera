@@ -1,0 +1,53 @@
+{% extends "weather/base.html" %}
+{% block title %}My Location Weather — Atmosfera{% endblock %}
+
+{% block extra_head %}
+<style>
+.loading-center {
+  text-align: center;
+  padding: 6rem 2rem;
+}
+.loading-icon {
+  font-size: 4rem;
+  animation: floatY 2s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+  display: block;
+}
+.loading-text {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="loadingState" class="loading-center">
+  <span class="loading-icon">📍</span>
+  <div class="loading-text">Loading your weather…</div>
+</div>
+
+<!-- The weather template content is injected here by JS -->
+<div id="weatherRoot" style="display:none;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// This page reads the geolocation weather data stored in sessionStorage
+// and redirects to the proper weather page via a city search.
+// Simpler approach: just redirect to /weather/ with lat/lon params.
+
+const raw = sessionStorage.getItem('geoWeather');
+if (!raw) {
+  window.location.href = '/';
+} else {
+  const data = JSON.parse(raw);
+  sessionStorage.removeItem('geoWeather');
+  // Redirect to city weather page using the city returned by API
+  const city = encodeURIComponent(data.current.city + ', ' + data.current.country);
+  const units = data.units || 'imperial';
+  window.location.href = `/weather/?city=${city}&units=${units}`;
+}
+</script>
+{% endblock %}
